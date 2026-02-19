@@ -93,9 +93,9 @@ export class WebSocketManager extends TypedEventEmitter<WSManagerEventMap> {
       (this.ws as any).binaryType = 'arraybuffer';
 
       this.ws.onopen = () => this.handleOpen();
-      this.ws.onclose = (event) => this.handleClose(event);
+      this.ws.onclose = (event: any) => this.handleClose(event);
       this.ws.onerror = () => this.handleError();
-      this.ws.onmessage = (event) => this.handleMessage(event);
+      this.ws.onmessage = (event: any) => this.handleMessage(event);
     } catch (err) {
       logError('Connection failed:', err);
       this.emit('error', String(err));
