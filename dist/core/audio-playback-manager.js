@@ -173,14 +173,10 @@ class AudioPlaybackManager extends event_emitter_1.TypedEventEmitter {
     clearQueue() {
         this.bufferQueue = [];
         this.stopIdleCheck();
+        // Reset scheduled end time so next enqueue starts immediately.
+        // Don't destroy AudioContext — recreating it causes iOS audio session errors.
         if (this.audioContext) {
-            try {
-                this.audioContext.close();
-                this.audioContext = null;
-            }
-            catch {
-                // Ignore close errors
-            }
+            this.scheduledEndTime = this.audioContext.currentTime;
         }
         this.isPlaying = false;
         (0, logger_1.logDebug)('Audio queue cleared');
@@ -188,6 +184,15 @@ class AudioPlaybackManager extends event_emitter_1.TypedEventEmitter {
     }
     cleanup() {
         this.clearQueue();
+        if (this.audioContext) {
+            try {
+                this.audioContext.close();
+            }
+            catch {
+                // Ignore close errors
+            }
+            this.audioContext = null;
+        }
         this.removeAllListeners();
     }
 }

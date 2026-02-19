@@ -167,6 +167,13 @@ function useVoiceChat(config, options) {
         try {
             const response = await handler(data);
             sdkRef.current?.sendLlmResponse(response);
+            // Show the LLM response in the chat
+            removeThinkingMessages();
+            addMessage({
+                type: 'assistant',
+                text: response,
+                language: 'en',
+            });
         }
         catch (err) {
             removeThinkingMessages();
