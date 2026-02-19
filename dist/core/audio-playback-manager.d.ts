@@ -12,14 +12,14 @@ export declare class AudioPlaybackManager extends TypedEventEmitter<AudioPlaybac
     private bufferQueue;
     private isPlaying;
     private scheduledEndTime;
-    private pendingBuffers;
-    private drainCheckTimer;
+    private idleCheckTimer;
     private initFailed;
     /** Volume amplification factor (matches iOS 3x) */
     private readonly VOLUME_FACTOR;
+    /** How often to check if playback has finished (ms) */
+    private readonly IDLE_CHECK_INTERVAL_MS;
     constructor(config: ResolvedConfig);
     get playing(): boolean;
-    get queueLength(): number;
     /**
      * Initialize the audio context for playback.
      */
@@ -42,9 +42,13 @@ export declare class AudioPlaybackManager extends TypedEventEmitter<AudioPlaybac
      */
     private scheduleBuffer;
     /**
-     * Check if all buffers have been played (idle state).
+     * Start a timer-based idle check.
+     * Polls audioContext.currentTime vs scheduledEndTime to detect when
+     * all scheduled audio has finished playing.
+     * (onended callbacks are unreliable in react-native-audio-api)
      */
-    private checkDrain;
+    private startIdleCheck;
+    private stopIdleCheck;
     /**
      * Clear all queued audio and stop playback.
      */

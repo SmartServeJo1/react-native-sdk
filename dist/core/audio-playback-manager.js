@@ -17,18 +17,16 @@ class AudioPlaybackManager extends event_emitter_1.TypedEventEmitter {
         this.bufferQueue = [];
         this.isPlaying = false;
         this.scheduledEndTime = 0;
-        this.pendingBuffers = 0;
-        this.drainCheckTimer = null;
+        this.idleCheckTimer = null;
         this.initFailed = false; // Stop retrying after first failure
         /** Volume amplification factor (matches iOS 3x) */
         this.VOLUME_FACTOR = 3.0;
+        /** How often to check if playback has finished (ms) */
+        this.IDLE_CHECK_INTERVAL_MS = 200;
         this.config = config;
     }
     get playing() {
         return this.isPlaying;
-    }
-    get queueLength() {
-        return this.bufferQueue.length + this.pendingBuffers;
     }
     /**
      * Initialize the audio context for playback.
@@ -37,7 +35,7 @@ class AudioPlaybackManager extends event_emitter_1.TypedEventEmitter {
         if (this.audioContext)
             return;
         if (this.initFailed)
-            return; // Already failed, don't retry
+            return;
         try {
             const AudioAPI = require('react-native-audio-api');
             // Configure audio session for both playback and recording
@@ -66,7 +64,7 @@ class AudioPlaybackManager extends event_emitter_1.TypedEventEmitter {
      */
     enqueueAudio(pcmData) {
         if (this.initFailed)
-            return; // Native module unavailable, skip silently
+            return;
         // Amplify audio (3x volume, matching iOS)
         const amplified = (0, audio_format_1.amplifyPCM16)(pcmData, this.VOLUME_FACTOR);
         this.bufferQueue.push(amplified);
@@ -83,11 +81,14 @@ class AudioPlaybackManager extends event_emitter_1.TypedEventEmitter {
     startPlayback() {
         try {
             this.ensureAudioContext();
+            if (!this.audioContext)
+                return;
             this.isPlaying = true;
             this.scheduledEndTime = this.audioContext.currentTime;
             this.emit('started');
             (0, logger_1.logDebug)('Playback started');
             this.processQueue();
+            this.startIdleCheck();
         }
         catch (err) {
             (0, logger_1.logError)('Playback start failed:', err);
@@ -102,10 +103,8 @@ class AudioPlaybackManager extends event_emitter_1.TypedEventEmitter {
      * Process queued audio buffers and schedule them for playback.
      */
     processQueue() {
-        if (!this.audioContext || this.bufferQueue.length === 0) {
-            this.checkDrain();
+        if (!this.audioContext || this.bufferQueue.length === 0)
             return;
-        }
         while (this.bufferQueue.length > 0) {
             const pcmData = this.bufferQueue.shift();
             this.scheduleBuffer(pcmData);
@@ -133,42 +132,49 @@ class AudioPlaybackManager extends event_emitter_1.TypedEventEmitter {
             source.start(startTime);
             const duration = numSamples / sampleRate;
             this.scheduledEndTime = startTime + duration;
-            this.pendingBuffers++;
-            // Track buffer completion
-            source.onended = () => {
-                this.pendingBuffers = Math.max(0, this.pendingBuffers - 1);
-                this.checkDrain();
-            };
         }
         catch (err) {
             (0, logger_1.logError)('Buffer scheduling failed:', err);
         }
     }
     /**
-     * Check if all buffers have been played (idle state).
+     * Start a timer-based idle check.
+     * Polls audioContext.currentTime vs scheduledEndTime to detect when
+     * all scheduled audio has finished playing.
+     * (onended callbacks are unreliable in react-native-audio-api)
      */
-    checkDrain() {
-        if (this.drainCheckTimer) {
-            clearTimeout(this.drainCheckTimer);
-        }
-        // Small delay to batch checks
-        this.drainCheckTimer = setTimeout(() => {
-            if (this.bufferQueue.length === 0 && this.pendingBuffers === 0 && this.isPlaying) {
+    startIdleCheck() {
+        this.stopIdleCheck();
+        this.idleCheckTimer = setInterval(() => {
+            if (!this.audioContext || !this.isPlaying) {
+                this.stopIdleCheck();
+                return;
+            }
+            const now = this.audioContext.currentTime;
+            const hasQueuedBuffers = this.bufferQueue.length > 0;
+            // All scheduled audio has finished and no more buffers queued
+            if (now >= this.scheduledEndTime && !hasQueuedBuffers) {
                 this.isPlaying = false;
-                (0, logger_1.logDebug)('Playback idle — all buffers drained');
+                this.stopIdleCheck();
+                (0, logger_1.logDebug)('Playback idle — all audio finished (time-based check)');
                 this.emit('idle');
             }
-        }, 50);
+        }, this.IDLE_CHECK_INTERVAL_MS);
+    }
+    stopIdleCheck() {
+        if (this.idleCheckTimer) {
+            clearInterval(this.idleCheckTimer);
+            this.idleCheckTimer = null;
+        }
     }
     /**
      * Clear all queued audio and stop playback.
      */
     clearQueue() {
         this.bufferQueue = [];
-        this.pendingBuffers = 0;
+        this.stopIdleCheck();
         if (this.audioContext) {
             try {
-                // Close and recreate context to stop all scheduled audio
                 this.audioContext.close();
                 this.audioContext = null;
             }
@@ -182,9 +188,6 @@ class AudioPlaybackManager extends event_emitter_1.TypedEventEmitter {
     }
     cleanup() {
         this.clearQueue();
-        if (this.drainCheckTimer) {
-            clearTimeout(this.drainCheckTimer);
-        }
         this.removeAllListeners();
     }
 }
