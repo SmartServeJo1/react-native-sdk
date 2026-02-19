@@ -1,0 +1,77 @@
+{
+  "name": "@smartserve/react-native-voice-sdk",
+  "version": "1.0.0",
+  "description": "SmartServe Voice Stream SDK for React Native — real-time voice AI with WebSocket PCM audio streaming",
+  "main": "./dist/index.cjs",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "react-native": "./dist/index.js",
+  "exports": {
+    ".": {
+      "import": {
+        "types": "./dist/index.d.ts",
+        "default": "./dist/index.js"
+      },
+      "require": {
+        "types": "./dist/index.d.cts",
+        "default": "./dist/index.cjs"
+      }
+    }
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
+  "scripts": {
+    "build": "tsup",
+    "typecheck": "tsc --noEmit",
+    "clean": "rm -rf dist",
+    "prepublishOnly": "npm run clean && npm run build"
+  },
+  "keywords": [
+    "react-native",
+    "voice",
+    "ai",
+    "websocket",
+    "audio",
+    "streaming",
+    "smartserve",
+    "voice-bot",
+    "tts",
+    "stt"
+  ],
+  "author": "SmartServe",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/SmartServeJo1/react-native-sdk.git"
+  },
+  "dependencies": {
+    "react-native-live-audio-stream": "^1.1.0",
+    "react-native-audio-api": "^0.11.0"
+  },
+  "peerDependencies": {
+    "react": ">=18.0.0",
+    "react-native": ">=0.72.0",
+    "react-native-reanimated": ">=3.0.0",
+    "react-native-svg": ">=13.0.0",
+    "react-native-linear-gradient": ">=2.8.0",
+    "react-native-permissions": ">=4.0.0"
+  },
+  "peerDependenciesMeta": {
+    "react-native-reanimated": { "optional": true },
+    "react-native-svg": { "optional": true },
+    "react-native-linear-gradient": { "optional": true },
+    "react-native-permissions": { "optional": true }
+  },
+  "devDependencies": {
+    "typescript": "^5.4.0",
+    "tsup": "^8.2.0",
+    "@types/react": "^18.2.0",
+    "@types/react-native": "^0.72.0",
+    "react": "^18.2.0",
+    "react-native": "^0.73.0"
+  },
+  "sideEffects": false
+}
