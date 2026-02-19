@@ -1,4 +1,4 @@
-import { StyleSheet, Dimensions, View, TouchableWithoutFeedback, KeyboardAvoidingView, Platform, TouchableOpacity, Text, FlatList, TextInput, Animated } from 'react-native';
+import { StyleSheet, Dimensions, View, TouchableWithoutFeedback, Platform, PermissionsAndroid, KeyboardAvoidingView, TouchableOpacity, Text, FlatList, TextInput, Animated } from 'react-native';
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { jsxs, jsx } from 'react/jsx-runtime';
 
@@ -301,7 +301,6 @@ function arrayBufferToBase64(buffer) {
 
 // src/core/audio-capture-manager.ts
 var LiveAudioStream = null;
-var RNPermissions = null;
 function getLiveAudioStream() {
   if (!LiveAudioStream) {
     try {
@@ -313,15 +312,6 @@ function getLiveAudioStream() {
     }
   }
   return LiveAudioStream;
-}
-function getPermissions() {
-  if (!RNPermissions) {
-    try {
-      RNPermissions = __require("react-native-permissions");
-    } catch {
-    }
-  }
-  return RNPermissions;
 }
 var AudioCaptureManager = class extends TypedEventEmitter {
   constructor(config) {
@@ -339,30 +329,28 @@ var AudioCaptureManager = class extends TypedEventEmitter {
   }
   /**
    * Request microphone permission.
-   * Returns true if granted, false otherwise.
+   * Uses React Native's built-in PermissionsAndroid on Android.
+   * On iOS, the native mic API triggers the permission prompt automatically.
    */
   async requestPermission() {
-    const permissions = getPermissions();
-    if (!permissions) {
-      logDebug("react-native-permissions not available, relying on native prompt");
-      return true;
-    }
-    try {
-      const { Platform: Platform2 } = __require("react-native");
-      const permission = Platform2.OS === "ios" ? permissions.PERMISSIONS.IOS.MICROPHONE : permissions.PERMISSIONS.ANDROID.RECORD_AUDIO;
-      const status = await permissions.check(permission);
-      if (status === permissions.RESULTS.GRANTED) {
-        return true;
+    if (Platform.OS === "android") {
+      try {
+        const granted = await PermissionsAndroid.request(
+          PermissionsAndroid.PERMISSIONS.RECORD_AUDIO,
+          {
+            title: "Microphone Permission",
+            message: "This app needs access to your microphone for voice chat.",
+            buttonPositive: "Allow",
+            buttonNegative: "Deny"
+          }
+        );
+        return granted === PermissionsAndroid.RESULTS.GRANTED;
+      } catch (err) {
+        logError("Permission request failed:", err);
+        return false;
       }
-      if (status === permissions.RESULTS.DENIED) {
-        const result = await permissions.request(permission);
-        return result === permissions.RESULTS.GRANTED;
-      }
-      return false;
-    } catch (err) {
-      logError("Permission check failed:", err);
-      return false;
     }
+    return true;
   }
   /**
    * Start capturing audio from the microphone.

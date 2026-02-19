@@ -1,11 +1,11 @@
+import { Platform, PermissionsAndroid } from 'react-native';
 import { TypedEventEmitter } from './event-emitter';
 import type { AudioCaptureEventMap, ResolvedConfig, VoiceStreamError } from './types';
 import { base64ToArrayBuffer } from './utils/audio-format';
 import { logDebug, logError } from './utils/logger';
 
-// Lazy imports to avoid crashes when not installed
+// Lazy import to avoid crashes when not installed
 let LiveAudioStream: any = null;
-let RNPermissions: any = null;
 
 function getLiveAudioStream(): any {
   if (!LiveAudioStream) {
@@ -19,17 +19,6 @@ function getLiveAudioStream(): any {
     }
   }
   return LiveAudioStream;
-}
-
-function getPermissions(): any {
-  if (!RNPermissions) {
-    try {
-      RNPermissions = require('react-native-permissions');
-    } catch {
-      // Permissions library optional — will try to proceed without it
-    }
-  }
-  return RNPermissions;
 }
 
 /**
@@ -57,41 +46,30 @@ export class AudioCaptureManager extends TypedEventEmitter<AudioCaptureEventMap>
 
   /**
    * Request microphone permission.
-   * Returns true if granted, false otherwise.
+   * Uses React Native's built-in PermissionsAndroid on Android.
+   * On iOS, the native mic API triggers the permission prompt automatically.
    */
   async requestPermission(): Promise<boolean> {
-    const permissions = getPermissions();
-
-    if (!permissions) {
-      // If permissions library not available, try to proceed
-      // (the native module will request permission on start)
-      logDebug('react-native-permissions not available, relying on native prompt');
-      return true;
+    if (Platform.OS === 'android') {
+      try {
+        const granted = await PermissionsAndroid.request(
+          PermissionsAndroid.PERMISSIONS.RECORD_AUDIO,
+          {
+            title: 'Microphone Permission',
+            message: 'This app needs access to your microphone for voice chat.',
+            buttonPositive: 'Allow',
+            buttonNegative: 'Deny',
+          },
+        );
+        return granted === PermissionsAndroid.RESULTS.GRANTED;
+      } catch (err) {
+        logError('Permission request failed:', err);
+        return false;
+      }
     }
 
-    try {
-      const { Platform } = require('react-native');
-      const permission = Platform.OS === 'ios'
-        ? permissions.PERMISSIONS.IOS.MICROPHONE
-        : permissions.PERMISSIONS.ANDROID.RECORD_AUDIO;
-
-      const status = await permissions.check(permission);
-
-      if (status === permissions.RESULTS.GRANTED) {
-        return true;
-      }
-
-      if (status === permissions.RESULTS.DENIED) {
-        const result = await permissions.request(permission);
-        return result === permissions.RESULTS.GRANTED;
-      }
-
-      // BLOCKED or UNAVAILABLE
-      return false;
-    } catch (err) {
-      logError('Permission check failed:', err);
-      return false;
-    }
+    // iOS: permission is requested automatically by the native audio module
+    return true;
   }
 
   /**
