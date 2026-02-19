@@ -447,6 +447,8 @@ var AudioPlaybackManager = class extends TypedEventEmitter {
     this.scheduledEndTime = 0;
     this.pendingBuffers = 0;
     this.drainCheckTimer = null;
+    this.initFailed = false;
+    // Stop retrying after first failure
     /** Volume amplification factor (matches iOS 3x) */
     this.VOLUME_FACTOR = 3;
     this.config = config;
@@ -462,6 +464,7 @@ var AudioPlaybackManager = class extends TypedEventEmitter {
    */
   ensureAudioContext() {
     if (this.audioContext) return;
+    if (this.initFailed) return;
     try {
       const AudioAPI = __require("react-native-audio-api");
       this.audioContext = new AudioAPI.AudioContext({
@@ -469,6 +472,7 @@ var AudioPlaybackManager = class extends TypedEventEmitter {
       });
       logDebug("AudioContext created at", this.config.audioOutputSampleRate, "Hz");
     } catch (err) {
+      this.initFailed = true;
       logError("Failed to create AudioContext:", err);
       throw new Error(
         "react-native-audio-api is required for audio playback. Install it with: npm install react-native-audio-api"
@@ -480,6 +484,7 @@ var AudioPlaybackManager = class extends TypedEventEmitter {
    * Auto-starts playback if not already playing.
    */
   enqueueAudio(pcmData) {
+    if (this.initFailed) return;
     const amplified = amplifyPCM16(pcmData, this.VOLUME_FACTOR);
     this.bufferQueue.push(amplified);
     if (!this.isPlaying) {

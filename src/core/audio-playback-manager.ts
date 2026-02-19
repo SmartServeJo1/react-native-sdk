@@ -17,6 +17,7 @@ export class AudioPlaybackManager extends TypedEventEmitter<AudioPlaybackEventMa
   private scheduledEndTime = 0;
   private pendingBuffers = 0;
   private drainCheckTimer: ReturnType<typeof setTimeout> | null = null;
+  private initFailed = false; // Stop retrying after first failure
 
   /** Volume amplification factor (matches iOS 3x) */
   private readonly VOLUME_FACTOR = 3.0;
@@ -39,6 +40,7 @@ export class AudioPlaybackManager extends TypedEventEmitter<AudioPlaybackEventMa
    */
   private ensureAudioContext(): void {
     if (this.audioContext) return;
+    if (this.initFailed) return; // Already failed, don't retry
 
     try {
       const AudioAPI = require('react-native-audio-api');
@@ -47,6 +49,7 @@ export class AudioPlaybackManager extends TypedEventEmitter<AudioPlaybackEventMa
       });
       logDebug('AudioContext created at', this.config.audioOutputSampleRate, 'Hz');
     } catch (err) {
+      this.initFailed = true;
       logError('Failed to create AudioContext:', err);
       throw new Error(
         'react-native-audio-api is required for audio playback. ' +
@@ -60,6 +63,8 @@ export class AudioPlaybackManager extends TypedEventEmitter<AudioPlaybackEventMa
    * Auto-starts playback if not already playing.
    */
   enqueueAudio(pcmData: ArrayBuffer): void {
+    if (this.initFailed) return; // Native module unavailable, skip silently
+
     // Amplify audio (3x volume, matching iOS)
     const amplified = amplifyPCM16(pcmData, this.VOLUME_FACTOR);
     this.bufferQueue.push(amplified);
