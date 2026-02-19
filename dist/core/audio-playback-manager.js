@@ -40,6 +40,14 @@ class AudioPlaybackManager extends event_emitter_1.TypedEventEmitter {
             return; // Already failed, don't retry
         try {
             const AudioAPI = require('react-native-audio-api');
+            // Configure audio session for both playback and recording
+            if (AudioAPI.AudioManager) {
+                AudioAPI.AudioManager.setAudioSessionOptions({
+                    iosCategory: 'playAndRecord',
+                    iosMode: 'voiceChat',
+                    iosOptions: ['defaultToSpeaker', 'allowBluetooth'],
+                });
+            }
             this.audioContext = new AudioAPI.AudioContext({
                 sampleRate: this.config.audioOutputSampleRate,
             });
