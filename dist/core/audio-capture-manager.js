@@ -29,6 +29,8 @@ class AudioCaptureManager extends event_emitter_1.TypedEventEmitter {
         this.isCapturing = false;
         this.isMuted = false;
         this.dataSubscription = null;
+        /** Input gain amplification factor to improve far-field mic sensitivity */
+        this.INPUT_GAIN_FACTOR = 2.0;
         this.config = config;
     }
     get capturing() {
@@ -83,7 +85,7 @@ class AudioCaptureManager extends event_emitter_1.TypedEventEmitter {
                 sampleRate: this.config.audioInputSampleRate,
                 channels: this.config.audioChannels,
                 bitsPerSample: this.config.audioBitDepth,
-                audioSource: 6, // VOICE_COMMUNICATION on Android
+                audioSource: 7, // VOICE_RECOGNITION on Android — better far-field sensitivity
                 bufferSize: this.config.audioBufferSize,
             });
             // Listen for audio data (base64-encoded PCM)
@@ -91,7 +93,8 @@ class AudioCaptureManager extends event_emitter_1.TypedEventEmitter {
                 if (this.isMuted)
                     return; // Discard frames when muted (echo prevention)
                 try {
-                    const audioBuffer = (0, audio_format_1.base64ToArrayBuffer)(base64Data);
+                    const rawBuffer = (0, audio_format_1.base64ToArrayBuffer)(base64Data);
+                    const audioBuffer = (0, audio_format_1.amplifyPCM16)(rawBuffer, this.INPUT_GAIN_FACTOR);
                     this.emit('data', audioBuffer);
                 }
                 catch (err) {

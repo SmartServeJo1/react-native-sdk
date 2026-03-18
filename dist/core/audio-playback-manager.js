@@ -42,7 +42,7 @@ class AudioPlaybackManager extends event_emitter_1.TypedEventEmitter {
             if (AudioAPI.AudioManager) {
                 AudioAPI.AudioManager.setAudioSessionOptions({
                     iosCategory: 'playAndRecord',
-                    iosMode: 'voiceChat',
+                    iosMode: 'default',
                     iosOptions: ['defaultToSpeaker', 'allowBluetooth'],
                 });
             }

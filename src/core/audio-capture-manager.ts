@@ -1,7 +1,7 @@
 import { Platform, PermissionsAndroid } from 'react-native';
 import { TypedEventEmitter } from './event-emitter';
 import type { AudioCaptureEventMap, ResolvedConfig, VoiceStreamError } from './types';
-import { base64ToArrayBuffer } from './utils/audio-format';
+import { amplifyPCM16, base64ToArrayBuffer } from './utils/audio-format';
 import { logDebug, logError } from './utils/logger';
 
 // Lazy import to avoid crashes when not installed
@@ -30,6 +30,9 @@ export class AudioCaptureManager extends TypedEventEmitter<AudioCaptureEventMap>
   private isCapturing = false;
   private isMuted = false;
   private dataSubscription: (() => void) | null = null;
+
+  /** Input gain amplification factor to improve far-field mic sensitivity */
+  private readonly INPUT_GAIN_FACTOR = 2.0;
 
   constructor(config: ResolvedConfig) {
     super();
@@ -96,7 +99,7 @@ export class AudioCaptureManager extends TypedEventEmitter<AudioCaptureEventMap>
         sampleRate: this.config.audioInputSampleRate,
         channels: this.config.audioChannels,
         bitsPerSample: this.config.audioBitDepth,
-        audioSource: 6, // VOICE_COMMUNICATION on Android
+        audioSource: 7, // VOICE_RECOGNITION on Android — better far-field sensitivity
         bufferSize: this.config.audioBufferSize,
       });
 
@@ -105,7 +108,8 @@ export class AudioCaptureManager extends TypedEventEmitter<AudioCaptureEventMap>
         if (this.isMuted) return; // Discard frames when muted (echo prevention)
 
         try {
-          const audioBuffer = base64ToArrayBuffer(base64Data);
+          const rawBuffer = base64ToArrayBuffer(base64Data);
+          const audioBuffer = amplifyPCM16(rawBuffer, this.INPUT_GAIN_FACTOR);
           this.emit('data', audioBuffer);
         } catch (err) {
           logError('Audio data decode error:', err);

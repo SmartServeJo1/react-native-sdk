@@ -9,6 +9,8 @@ export declare class AudioCaptureManager extends TypedEventEmitter<AudioCaptureE
     private isCapturing;
     private isMuted;
     private dataSubscription;
+    /** Input gain amplification factor to improve far-field mic sensitivity */
+    private readonly INPUT_GAIN_FACTOR;
     constructor(config: ResolvedConfig);
     get capturing(): boolean;
     get muted(): boolean;
